@@ -26,12 +26,11 @@ services:
   # 2. Next.js Frontend
   - type: web
     name: orbitops-web
-    runtime: node
+    runtime: docker
+    dockerfilePath: apps/web/Dockerfile
+    dockerContext: apps/web
     plan: free
     region: oregon
-    rootDir: apps/web
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
-    startCommand: pnpm start
     envVars:
       - key: NEXT_PUBLIC_API_URL
         value: https://orbitops-api.onrender.com/api/v1
