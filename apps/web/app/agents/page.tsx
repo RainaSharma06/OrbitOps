@@ -13,16 +13,198 @@ import { Card } from "@/components/ui/card";
 import { api } from "@/lib/api";
 import type { AgentMetric, Workflow } from "@/lib/types";
 
-export default function AgentsPage(){
-  const [metrics,setMetrics]=useState<AgentMetric[]>([]),[runs,setRuns]=useState<Workflow[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState("");
-  const load=useCallback(async()=>{setLoading(true);setError("");try{const [agentData,runData]=await Promise.all([api<AgentMetric[]>("/agents/metrics"),api<Workflow[]>("/workflows")]);setMetrics(agentData);setRuns(runData)}catch(reason){setError(reason instanceof Error?reason.message:"Unable to load agent monitor")}finally{setLoading(false)}},[]);useEffect(()=>{void load()},[load]);
-  async function retry(id:string){try{await api(`/workflows/${id}/retry`,{method:"POST"});await load()}catch(reason){setError(reason instanceof Error?reason.message:"Retry failed")}}
-  const total=metrics.reduce((sum,item)=>sum+item.total_runs,0),failures=metrics.reduce((sum,item)=>sum+item.failed_runs,0),avg=metrics.length?Math.round(metrics.reduce((sum,item)=>sum+item.average_latency_ms,0)/metrics.length):0,cost=metrics.reduce((sum,item)=>sum+item.estimated_cost_usd,0);
-  return <div className="mx-auto max-w-[1480px]"><PageHeader eyebrow="AI runtime intelligence" title="Agent monitoring" description="Reliability, latency, cost, and failure signals across the production agent fleet." actions={<Button asChild variant="outline"><Link href="/ai-ops">Open AI control plane</Link></Button>}/>
-    {error&&<ErrorState message={error} retry={load}/>} {loading?<LoadingState rows={6}/>:<><section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><StatCard label="Total executions" value={total} icon={Activity} tone="blue"/><StatCard label="Fleet success rate" value={`${total?((total-failures)/total*100).toFixed(1):100}%`} icon={ShieldCheck} tone="emerald"/><StatCard label="Average runtime" value={`${avg} ms`} icon={Clock3} tone="violet"/><StatCard label="Estimated cost" value={`$${cost.toFixed(4)}`} icon={CircleDollarSign} tone="amber"/></section>
-      <section className="mt-4 grid gap-4 lg:grid-cols-2"><TrendChart title="Execution trend" description="Runtime volume by agent" data={metrics.map(item=>({label:item.agent_name,value:item.total_runs}))}/><MetricChart title="Failure breakdown" description="Failed runs by agent category" data={metrics.map(item=>({label:item.agent_name,value:item.failed_runs}))}/></section>
-      <h2 className="mb-3 mt-7 text-sm font-semibold text-strong">Agent health</h2><section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{metrics.map(item=><Card key={item.agent_name} className="p-5"><div className="flex items-center justify-between"><span className="grid size-9 place-items-center rounded-lg bg-blue-500/10 text-blue-500"><Bot size={17}/></span><span className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-500"><span className="size-1.5 rounded-full bg-emerald-500"/>Healthy</span></div><div className="mt-4 flex items-end justify-between"><div><h3 className="font-semibold capitalize text-strong">{item.agent_name} Agent</h3><p className="mt-1 text-xs text-muted">{item.total_runs} production executions</p></div><p className="tabular text-xl font-semibold text-strong">{item.success_rate}%</p></div><div className="mt-4 h-1.5 overflow-hidden rounded-full bg-[var(--surface-subtle)]"><div className="h-full rounded-full bg-emerald-500" style={{width:`${item.success_rate}%`}}/></div><div className="mt-4 grid grid-cols-3 divide-x divide-[var(--border)] text-center"><Mini label="Runtime" value={`${item.average_latency_ms}ms`}/><Mini label="Retries" value={String(item.failed_runs)}/><Mini label="Tokens" value={String(item.input_tokens+item.output_tokens)}/></div>{item.last_failure_reason&&<p className="mt-4 flex items-start gap-2 rounded-lg bg-rose-500/8 p-2.5 text-xs text-rose-500"><TriangleAlert size={14}/>{item.last_failure_reason}</p>}</Card>)}</section>
-      <h2 className="mb-3 mt-7 text-sm font-semibold text-strong">Recent executions</h2>{runs.length===0?<EmptyState title="No workflow runs" detail="Start an agent workflow from a lead."/>:<div className="table-shell overflow-x-auto"><table className="min-w-[760px] text-left text-sm"><thead><tr><th>Run</th><th>Current step</th><th>Status</th><th>Started</th><th className="text-right">Action</th></tr></thead><tbody>{runs.slice(0,8).map(run=><tr key={run.id}><td><Link href={`/leads/${run.lead_id}`} className="font-semibold text-strong hover:text-[var(--brand)]">{run.id.slice(0,8)}</Link></td><td className="capitalize text-muted">{run.current_agent||run.state_snapshot.phase||"—"}</td><td><StatusBadge status={run.status}/></td><td className="text-xs text-muted">{new Date(run.started_at||run.created_at).toLocaleString()}</td><td className="text-right">{run.status==="failed"&&<Button size="sm" onClick={()=>retry(run.id)}><RotateCcw size={13}/>Retry</Button>}</td></tr>)}</tbody></table></div>}</>}
-  </div>
+export default function AgentsPage() {
+  const [metrics, setMetrics] = useState<AgentMetric[]>([]),
+    [runs, setRuns] = useState<Workflow[]>([]),
+    [loading, setLoading] = useState(true),
+    [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const [agentData, runData] = await Promise.all([
+        api<AgentMetric[]>("/agents/metrics"),
+        api<Workflow[]>("/workflows"),
+      ]);
+      setMetrics(agentData);
+      setRuns(runData);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to load agent monitor");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function retry(id: string) {
+    try {
+      await api(`/workflows/${id}/retry`, { method: "POST" });
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Retry failed");
+    }
+  }
+
+  const total = metrics.reduce((sum, item) => sum + item.total_runs, 0),
+    failures = metrics.reduce((sum, item) => sum + item.failed_runs, 0),
+    avg = metrics.length
+      ? Math.round(metrics.reduce((sum, item) => sum + item.average_latency_ms, 0) / metrics.length)
+      : 0,
+    cost = metrics.reduce((sum, item) => sum + item.estimated_cost_usd, 0);
+
+  return (
+    <div className="mx-auto max-w-[1480px]">
+      <PageHeader
+        eyebrow="AI runtime intelligence"
+        title="Agent monitoring"
+        description="Reliability, latency, cost, and failure signals across the production agent fleet."
+        actions={
+          <Button asChild variant="outline">
+            <Link href="/ai-ops">Open AI control plane</Link>
+          </Button>
+        }
+      />
+      {error && <ErrorState message={error} retry={load} />}
+      {loading ? (
+        <LoadingState rows={6} />
+      ) : (
+        <>
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard label="Total executions" value={total} icon={Activity} />
+            <StatCard
+              label="Fleet success rate"
+              value={`${total ? (((total - failures) / total) * 100).toFixed(1) : 100}%`}
+              icon={ShieldCheck}
+            />
+            <StatCard label="Average runtime" value={`${avg} ms`} icon={Clock3} />
+            <StatCard label="Estimated cost" value={`$${cost.toFixed(4)}`} icon={CircleDollarSign} />
+          </section>
+
+          <section className="mt-4 grid gap-4 lg:grid-cols-2">
+            <TrendChart
+              title="Execution trend"
+              description="Runtime volume by agent"
+              data={metrics.map((item) => ({ label: item.agent_name, value: item.total_runs }))}
+            />
+            <MetricChart
+              title="Failure breakdown"
+              description="Failed runs by agent category"
+              data={metrics.map((item) => ({ label: item.agent_name, value: item.failed_runs }))}
+            />
+          </section>
+
+          <h2 className="mb-3 mt-8 font-mono text-xs font-semibold uppercase tracking-wider text-muted">
+            Agent fleet status
+          </h2>
+          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {metrics.map((item) => (
+              <Card
+                key={item.agent_name}
+                className="p-5 hover:border-[var(--border-strong)] transition"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="grid size-9 place-items-center rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--text-strong)] shadow-xs">
+                    <Bot size={17} />
+                  </span>
+                  <span className="flex items-center gap-1.5 font-mono text-[11px] font-medium text-strong">
+                    <span className="size-1.5 rounded-full bg-emerald-400" />
+                    Healthy
+                  </span>
+                </div>
+                <div className="mt-4 flex items-end justify-between">
+                  <div>
+                    <h3 className="font-semibold capitalize text-strong">{item.agent_name} Agent</h3>
+                    <p className="mt-0.5 font-mono text-xs text-muted">{item.total_runs} executions</p>
+                  </div>
+                  <p className="tabular font-mono text-xl font-bold text-strong">{item.success_rate}%</p>
+                </div>
+                <div className="mt-4 h-1.5 overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surface-subtle)]">
+                  <div
+                    className="h-full rounded-full bg-[var(--text-strong)]"
+                    style={{ width: `${item.success_rate}%` }}
+                  />
+                </div>
+                <div className="mt-4 grid grid-cols-3 divide-x divide-[var(--border)] text-center font-mono">
+                  <Mini label="Runtime" value={`${item.average_latency_ms}ms`} />
+                  <Mini label="Retries" value={String(item.failed_runs)} />
+                  <Mini label="Tokens" value={String(item.input_tokens + item.output_tokens)} />
+                </div>
+                {item.last_failure_reason && (
+                  <p className="mt-4 flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/5 p-2.5 font-mono text-xs text-red-400">
+                    <TriangleAlert size={14} />
+                    {item.last_failure_reason}
+                  </p>
+                )}
+              </Card>
+            ))}
+          </section>
+
+          <h2 className="mb-3 mt-8 font-mono text-xs font-semibold uppercase tracking-wider text-muted">
+            Recent executions
+          </h2>
+          {runs.length === 0 ? (
+            <EmptyState title="No workflow runs" detail="Start an agent workflow from a lead." />
+          ) : (
+            <div className="table-shell overflow-x-auto">
+              <table className="min-w-[760px] text-left text-sm">
+                <thead>
+                  <tr>
+                    <th>Run</th>
+                    <th>Current step</th>
+                    <th>Status</th>
+                    <th>Started</th>
+                    <th className="text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {runs.slice(0, 8).map((run) => (
+                    <tr key={run.id}>
+                      <td>
+                        <Link
+                          href={`/leads/${run.lead_id}`}
+                          className="font-mono font-semibold text-strong hover:underline"
+                        >
+                          {run.id.slice(0, 8)}
+                        </Link>
+                      </td>
+                      <td className="capitalize text-muted">
+                        {run.current_agent || run.state_snapshot.phase || "—"}
+                      </td>
+                      <td>
+                        <StatusBadge status={run.status} />
+                      </td>
+                      <td className="font-mono text-xs text-muted">
+                        {new Date(run.started_at || run.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="text-right">
+                        {run.status === "failed" && (
+                          <Button size="sm" onClick={() => retry(run.id)}>
+                            <RotateCcw size={13} />
+                            Retry
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
-function Mini({label,value}:{label:string;value:string}){return <div><p className="tabular text-xs font-semibold text-strong">{value}</p><p className="mt-1 text-[9px] uppercase tracking-wider text-muted">{label}</p></div>}
+
+function Mini({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="tabular font-mono text-xs font-semibold text-strong">{value}</p>
+      <p className="mt-1 font-mono text-[9px] uppercase tracking-wider text-muted">{label}</p>
+    </div>
+  );
+}

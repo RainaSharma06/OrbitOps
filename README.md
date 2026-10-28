@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-# ForceFlow
-=======
 <div align="center">
 
 # OrbitOps
