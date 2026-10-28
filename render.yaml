@@ -34,6 +34,8 @@ services:
     envVars:
       - key: NEXT_PUBLIC_API_URL
         value: https://orbitops-api.onrender.com/api/v1
+      - key: API_INTERNAL_URL
+        value: https://orbitops-api.onrender.com/api/v1
 
 databases:
   - name: orbitops-db
