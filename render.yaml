@@ -34,11 +34,7 @@ services:
     startCommand: pnpm start
     envVars:
       - key: NEXT_PUBLIC_API_URL
-        fromService:
-          type: web
-          name: forceflow-api
-          property: host
-        value: https://${forceflow-api.host}/api/v1
+        value: https://forceflow-api.onrender.com/api/v1
 
 databases:
   - name: forceflow-db
