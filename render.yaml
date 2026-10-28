@@ -30,7 +30,7 @@ services:
     plan: free
     region: oregon
     rootDir: apps/web
-    buildCommand: pnpm install && pnpm build
+    buildCommand: npm install -g pnpm && pnpm install && pnpm build
     startCommand: pnpm start
     envVars:
       - key: NEXT_PUBLIC_API_URL
